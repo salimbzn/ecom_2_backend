@@ -1,0 +1,30 @@
+# Core dependencies
+Django==4.2.7  
+djangorestframework==3.15.2
+
+# Optional dependencies for token authentication
+djangorestframework-simplejwt==5.2.2  
+
+# Database dependencies (if using PostgreSQL)
+psycopg2==2.9.10  
+
+# For managing CORS (Cross-Origin Resource Sharing)
+django-cors-headers==4.0.0  
+
+# Optional: Pagination and filtering support
+django-filter==23.2  
+
+# Optional: Debugging and development tools
+django-debug-toolbar==4.1.0  
+# Number field 
+django-phonenumber-field==8.0.0
+phonenumbers==8.13.54
+
+# Multiple image handeling
+pillow==10.0.0
+
+# For envirement variables
+python-dotenv==1.0.0
+
+# For admin interface customization
+django-jazzmin==3.0.1
