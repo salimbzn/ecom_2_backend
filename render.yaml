@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ecom      # must match the name of your service in Render
+    env: python
+    plan: free
+    pythonVersion: "3.11"
+    buildCommand: |
+      pip install --upgrade pip setuptools wheel
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: gunicorn ecom.wsgi:application
