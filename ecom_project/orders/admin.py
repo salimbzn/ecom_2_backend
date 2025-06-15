@@ -98,7 +98,7 @@ class OrderAdmin(admin.ModelAdmin):
         'order_status_badge',
         'total_amount_formatted',
     )
-    list_display_links = ('id','costumer_name')
+    list_display_links = ('id',',costumer_name')
     list_filter = ('order_status',)
     search_fields = ('costumer_name', 'costumer_phone')
     date_hierarchy = 'order_date'
