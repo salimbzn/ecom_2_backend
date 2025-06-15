@@ -21,7 +21,7 @@ django-phonenumber-field==8.0.0
 phonenumbers==8.13.54
 
 # Multiple image handeling
-pillow==10.0.0
+pillow==10.1.0
 
 # For envirement variables
 python-dotenv==1.0.0
