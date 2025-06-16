@@ -4,6 +4,8 @@ from django.contrib import admin
 from django.db.models import Case, When, Value, IntegerField
 from django.utils.html import format_html
 from .models import Order, OrderItem, Wilaya, Commune
+from django.contrib import messages
+from django.core.exceptions import ValidationError
 
 @admin.register(Wilaya)
 class WilayaAdmin(admin.ModelAdmin):
@@ -56,21 +58,41 @@ class OrderItemInline(admin.StackedInline):
 
 @admin.action(description="Mark selected orders as Accepted")
 def mark_as_accepted(modeladmin, request, queryset):
-    # Only pick orders that are currently pending
-    pending_qs = queryset.filter(order_status__iexact='Pending')
-
+    pending_qs = queryset.filter(order_status__iexact="Pending")
     accepted_count = 0
+    error_messages = []
+
     for order in pending_qs:
-        order.order_status = 'Accepted'
-        order.save()            # ← triggers Order.save() → item.update_stock()
-        order.update_total()    # ← recalc total AFTER stock has been decremented
-        accepted_count += 1
+        # Try flipping to Accepted and saving
+        order.order_status = "Accepted"
+        try:
+            # If you want to invoke your clean() stock‐check:
+            order.full_clean()
+            order.save()           # this will decrement stock
+            order.update_total()   # recalc total AFTER stock has been decremented
+            accepted_count += 1
 
-    modeladmin.message_user(
-        request,
-        f"{accepted_count} order(s) marked as accepted."
-    )
+        except ValidationError as e:
+            # Pull out the specific order_status error (or all errors if you like)
+            msg = e.error_dict.get("order_status") or e.messages
+            # Normalize into a string
+            if isinstance(msg, list):
+                msg = "; ".join(str(m) for m in msg)
+            elif hasattr(msg, "__iter__") and "order_status" in e.error_dict:
+                msg = e.error_dict["order_status"][0]
+            error_messages.append(f"Order #{order.pk}: {msg}")
 
+    # Send a success banner if any orders were accepted
+    if accepted_count:
+        modeladmin.message_user(
+            request,
+            f"{accepted_count} order(s) marked as Accepted.",
+            level=messages.SUCCESS
+        )
+
+    # Send one ERROR banner per problem order
+    for err in error_messages:
+        modeladmin.message_user(request, err, level=messages.ERROR)
 
 @admin.action(description="Mark selected orders as Rejected")
 def mark_as_rejected(modeladmin, request, queryset):
@@ -139,7 +161,7 @@ class OrderAdmin(admin.ModelAdmin):
             return base
 
         # obj is None → Add form: only date & total are read‐only
-        return ('order_date', 'total_amount')
+        return ('order_date', 'total_amount','order_status')
 
     def order_status_badge(self, obj):
         COLOR = {

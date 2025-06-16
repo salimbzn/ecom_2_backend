@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'rest_framework',
     "cloudinary",
     "cloudinary_storage",
+    'django_seed',
     'products',
     'orders',  # Your products app
     'corsheaders',  # If you are using CORS
@@ -159,6 +160,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # settings.py
+ADMIN_URL = ""
 
 JAZZMIN_SETTINGS = {
     # Site Branding
@@ -192,28 +194,32 @@ JAZZMIN_SETTINGS = {
     },
 
     # Custom menu links under the “orders” app
-    "custom_links": {
-        "orders": [
-            {
-                "name": "Pending Orders",
-                "url": "/admin/orders/order/?order_status__exact=Pending",
-                "icon": "fas fa-hourglass-half",
-                "permissions": ["orders.view_order"],
-            },
-            {
-                "name": "Accepted Orders",
-                "url": "/admin/orders/order/?order_status__exact=Accepted",
-                "icon": "fas fa-check-circle",
-                "permissions": ["orders.view_order"],
-            },
-            {
-                "name": "Rejected Orders",
-                "url": "/admin/orders/order/?order_status__exact=Rejected",
-                "icon": "fas fa-times-circle",
-                "permissions": ["orders.view_order"],
-            },
-        ],
-    },
+    # "custom_links": {
+    #     "orders": [
+    #         {
+    #             "name": "Pending Orders",
+    #             # reverse("admin:orders_order_changelist")
+    #             "url_name": "admin:orders_order_changelist",
+    #             "icon": "fas fa-hourglass-half",
+    #             "permissions": ["orders.view_order"],
+    #             "params": {"order_status__exact": "Pending"},
+    #         },
+    #         {
+    #             "name": "Accepted Orders",
+    #             "url_name": "admin:orders_order_changelist",
+    #             "icon": "fas fa-check-circle",
+    #             "permissions": ["orders.view_order"],
+    #             "params": {"order_status__exact": "Accepted"},
+    #         },
+    #         {
+    #             "name": "Rejected Orders",
+    #             "url_name": "admin:orders_order_changelist",
+    #             "icon": "fas fa-times-circle",
+    #             "permissions": ["orders.view_order"],
+    #             "params": {"order_status__exact": "Rejected"},
+    #         },
+    #     ],
+    # },
 
     # Dashboard Cards
     "welcome_cards": [

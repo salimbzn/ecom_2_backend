@@ -63,38 +63,46 @@ class Order(models.Model):
         )
         self.total_amount = new_total
         self.save(update_fields=["total_amount"])
+    
+    def clean(self):
+        super().clean()
+
+        # only when editing an existing Order…
+        if self.pk:
+            old_status = Order.objects.filter(pk=self.pk).values_list("order_status", flat=True).first()
+            # …and only when flipping Pending→Accepted…
+            if old_status == "Pending" and self.order_status == "Accepted":
+                # check every LineItem
+                for item in self.items.all():
+                    if item.quantity > item.variant.stock:
+                        # attach to the order_status field
+                        raise ValidationError({
+                            "order_status": (
+                                f"Not enough stock for “{item.variant}” – "
+                                f"requested {item.quantity}, available {item.variant.stock}."
+                            )
+                        })
 
     def save(self, *args, **kwargs):
-        """
-        We want to decrement stock only once:
-          • When an existing Order’s status changes from “Pending” → “Accepted”.
-          • Do NOT decrement on every save. Also do NOT decrement when creating a brand‐new order,
-            because new orders default to “Pending.”
-
-        Algorithm:
-          1. If this instance already exists in the DB (i.e. self.pk is not None),
-             fetch the “old” version to see its previous order_status.
-          2. Call super().save(…) to persist any changes (e.g. maybe status just flipped).
-          3. If previous_status != 'Accepted' but now self.order_status == 'Accepted',
-             iterate self.items.all() and for each, call its update_stock().
-        """
+        self.full_clean()
         is_new = self.pk is None
         previous_status = None
 
         if not is_new:
-            # Grab the old row to see what the status was before we save
-            prev = Order.objects.filter(pk=self.pk).only("order_status").first()
-            if prev:
-                previous_status = prev.order_status
+            previous_status = (
+                Order.objects
+                .filter(pk=self.pk)
+                .values_list("order_status", flat=True)
+                .first()
+            )
 
         super().save(*args, **kwargs)
 
-        # Only when updating (not on create) AND status flipped “Pending→Accepted”:
+        # only once, when Pending→Accepted:
         if (not is_new) and (previous_status == "Pending") and (self.order_status == "Accepted"):
             for item in self.items.all():
                 item.update_stock()
-            # (optional) If you want to also recalc total right after acceptance, you could call:
-            # self.update_total()
+            # optionally: self.update_total()
 
 
 class OrderItem(models.Model):
