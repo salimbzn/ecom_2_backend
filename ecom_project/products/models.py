@@ -15,7 +15,7 @@ class Product(models.Model):
     # stock = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    image = models.ImageField(upload_to=upload_to, blank=True, null=True)
+    image = models.ImageField(upload_to=upload_to)
     category = models.ForeignKey('Category', related_name='products', on_delete=models.CASCADE, blank=True, null=True)
     def __str__(self):
         return self.name
@@ -27,7 +27,7 @@ class ProductVariant(models.Model):
     stock = models.PositiveIntegerField(default=0)
     color = models.CharField(max_length=50, blank=True, null=True)
     size = models.CharField(max_length=50, blank=True, null=True)
-    image = models.ImageField(upload_to=upload_to_variant, blank=True, null=True)
+    image = models.ImageField(upload_to=upload_to_variant)
     def __str__(self):
         return f"{self.product.name} - {self.name or None} {self.color or 'No Color'} {self.size or 'No Size'}"
 
