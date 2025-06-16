@@ -3,6 +3,7 @@
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from products.models import ProductVariant
+from django.core.exceptions import ValidationError
 
 CHOICES = (
     ('Pending', 'Pending'),
@@ -102,19 +103,17 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    def clean(self):
+        if self.variant and self.quantity > self.variant.stock:
+            raise ValidationError(
+                f"Only {self.variant.stock} units available for {self.variant}. You requested {self.quantity}."
+            )
+
     def save(self, *args, **kwargs):
-        """
-        When creating a new OrderItem, we set price = variant.price * quantity.
-        (If you later allow editing an existing line’s quantity, you’ll need to
-         restore stock accordingly before subtracting it again. This example assumes
-         “create once, never edit quantity.”)
-        """
+        self.full_clean() 
         is_new_line = self.pk is None
-
         if is_new_line:
-            # Set the price at creation
             self.price = self.variant.price * self.quantity
-
         super().save(*args, **kwargs)
 
     def update_stock(self):
