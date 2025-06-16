@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'rest_framework',
     "cloudinary",
     "cloudinary_storage",
-    'django_seed',
     'products',
     'orders',  # Your products app
     'corsheaders',  # If you are using CORS
