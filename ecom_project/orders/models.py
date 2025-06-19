@@ -2,7 +2,7 @@
 
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
-from products.models import ProductVariant
+from products.models import Product
 from django.core.exceptions import ValidationError
 
 CHOICES = (
@@ -45,9 +45,9 @@ class Order(models.Model):
     order_status = models.CharField(max_length=50, default="Pending", choices=CHOICES)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     delivery_type = models.CharField(max_length=50, default="Bureau", choices=(("A Domicile", "A Domicile"), ("Bureau", "Bureau")))
-    wilaya = models.ForeignKey(Wilaya, on_delete=models.PROTECT)
-    commune = models.ForeignKey(Commune, on_delete=models.PROTECT, null=True, blank=True)
-
+    delivery_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    wilaya = models.CharField(max_length=100)
+    commune = models.CharField(max_length=100, blank=True, null=True)
 
     def __str__(self):
         return f"Order {self.id} - {self.costumer_name} - {self.order_status}"
@@ -58,9 +58,9 @@ class Order(models.Model):
         Call this *after* items have been created or modified.
         """
         new_total = sum(
-            item.variant.price * item.quantity
+            item.product.price * item.quantity
             for item in self.items.all()
-        )
+        ) + (self.delivery_fees or 0)
         self.total_amount = new_total
         self.save(update_fields=["total_amount"])
     
@@ -74,12 +74,12 @@ class Order(models.Model):
             if old_status == "Pending" and self.order_status == "Accepted":
                 # check every LineItem
                 for item in self.items.all():
-                    if item.quantity > item.variant.stock:
+                    if item.quantity > item.product.stock:
                         # attach to the order_status field
                         raise ValidationError({
                             "order_status": (
-                                f"Not enough stock for “{item.variant}” – "
-                                f"requested {item.quantity}, available {item.variant.stock}."
+                                f"Not enough stock for “{item.product}” – "
+                                f"requested {item.quantity}, available {item.product.stock}."
                             )
                         })
 
@@ -107,21 +107,21 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
-    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT,blank=True, null=True)
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def clean(self):
-        if self.variant and self.quantity > self.variant.stock:
+        if self.product and self.quantity > self.product.stock:
             raise ValidationError(
-                f"Only {self.variant.stock} units available for {self.variant}. You requested {self.quantity}."
+                f"Only {self.product.stock} units available for {self.product}. You requested {self.quantity}."
             )
 
     def save(self, *args, **kwargs):
         self.full_clean() 
         is_new_line = self.pk is None
         if is_new_line:
-            self.price = self.variant.price * self.quantity
+            self.price = self.product.price * self.quantity
         super().save(*args, **kwargs)
 
     def update_stock(self):
@@ -130,11 +130,11 @@ class OrderItem(models.Model):
         Called by Order.save() only once, when status flips to 'Accepted'.
         """
         # Optionally guard against negative stock:
-        if self.quantity > self.variant.stock:
+        if self.quantity > self.product.stock:
             raise ValueError("Insufficient stock to fulfill this order item.")
 
-        self.variant.stock -= self.quantity
-        self.variant.save(update_fields=['stock'])
+        self.product.stock -= self.quantity
+        self.product.save(update_fields=['stock'])
 
     def __str__(self):
-        return f"{self.quantity} x {self.variant} for Order {self.order.id}"
+        return f"{self.quantity} x {self.product} for Order {self.order.id}"

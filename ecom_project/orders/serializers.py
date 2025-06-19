@@ -1,17 +1,17 @@
 from rest_framework import serializers
 from .models import Order, OrderItem, Wilaya, Commune
-from products.serializers import ProductVariantSerializer
+from products.serializers import Product
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
-        fields = ['id', 'variant', 'quantity','price']
+        fields = ['id', 'product', 'quantity','price']
         read_only_fields = ['id','price']
     def validate(self, attrs):
         if attrs['quantity'] <= 0:
             raise serializers.ValidationError("Quantity must be greater than zero.")
-        if attrs['quantity'] > attrs['variant'].stock:
+        if attrs['quantity'] > attrs['product'].stock:
             raise serializers.ValidationError("Insufficient stock for this variant.")
         
         return attrs
@@ -20,20 +20,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     # We need to expose delivery_type, wilaya, commune
     delivery_type = serializers.ChoiceField(
-        choices=(("A Domicile", "A Domicile"), ("Bureau", "Bureau"), ("Point de retrait", "Point de retrait"))
+        choices=(("A Domicile", "A Domicile"), ("Bureau", "Bureau"))
     )
     # Assuming wilaya and commune are ForeignKeys in Order → we use PrimaryKeyRelatedField
-    wilaya = serializers.PrimaryKeyRelatedField(
-        queryset=Wilaya.objects.all(),
-        required=False,   # we’ll enforce requiredness conditionally in validate()
-        allow_null=True,
-    )
-    commune = serializers.PrimaryKeyRelatedField(
-        queryset=Commune.objects.all(),
-        required=False,
-        allow_null=True,
-    )
-
     items = OrderItemSerializer(many=True)
 
     class Meta:
@@ -44,6 +33,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'costumer_phone',
             'order_date',
             'delivery_type',
+            'delivery_fees',
             'wilaya',
             'commune',
             'order_status',

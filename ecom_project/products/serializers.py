@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer
-from .models import Product, Category, ProductVariant
+from .models import Product, Category
 
 
 class ProductSerializer(ModelSerializer):
@@ -12,14 +12,6 @@ class ProductSerializer(ModelSerializer):
         }
 
  
-class ProductVariantSerializer(ModelSerializer):
-    class Meta:
-        model = ProductVariant
-        fields = '__all__'
-        extra_kwargs = {
-            'created_at': {'read_only': True},
-            'updated_at': {'read_only': True},
-        }
 
 class CategorySerializer(ModelSerializer):
     class Meta:

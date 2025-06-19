@@ -7,21 +7,21 @@ from .models import Order, OrderItem, Wilaya, Commune
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 
-@admin.register(Wilaya)
-class WilayaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'domicile_price', 'bureau_price')
-    search_fields = ('name',)
-    ordering = ('name',)
+# @admin.register(Wilaya)
+# class WilayaAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'name', 'domicile_price', 'bureau_price')
+#     search_fields = ('name',)
+#     ordering = ('name',)
 
-@admin.register(Commune)
-class CommuneAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'wilaya')
-    search_fields = ('name',)
-    ordering = ('name',)
-    list_filter = ('wilaya',)
+# @admin.register(Commune)
+# class CommuneAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'name', 'wilaya')
+#     search_fields = ('name',)
+#     ordering = ('name',)
+#     list_filter = ('wilaya',)
 
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related('wilaya')
+#     def get_queryset(self, request):
+#         return super().get_queryset(request).select_related('wilaya')
 
 
 
@@ -30,16 +30,17 @@ class OrderItemInline(admin.StackedInline):
     extra = 1
 
     fields = (
-        'variant',
+        'product',
         'quantity',
         'price',
-        'get_variant_size',
+        'get_product_size',
+        'get_product_color',
     )
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            return ('variant', 'quantity', 'price', 'get_variant_size')
-        return ('price', 'get_variant_size')
+            return ('product', 'quantity', 'price', 'get_product_size','get_product_color')
+        return ('price', 'get_product_size','get_product_color')
 
     def has_add_permission(self, request, obj=None):
         return obj is None
@@ -47,9 +48,13 @@ class OrderItemInline(admin.StackedInline):
     def has_delete_permission(self, request, obj=None):
         return obj is None
 
-    def get_variant_size(self, item_obj):
-        return item_obj.variant.size if item_obj.variant else "-"
-    get_variant_size.short_description = 'Size'
+    def get_product_size(self, item_obj):
+        return item_obj.product.size if item_obj.product else "-"
+    get_product_size.short_description = 'Size'
+
+    def get_product_color(self, item_obj):
+        return item_obj.product.color if item_obj.product else "-"
+    get_product_color.short_description = 'Color'
 
     def price_display(self, item_obj):
         return f"${item_obj.price:.2f}"
@@ -151,7 +156,8 @@ class OrderAdmin(admin.ModelAdmin):
                 'wilaya',
                 'commune',
                 'order_date',
-                'total_amount'
+                'total_amount',
+                'delivery_fees',
             )
             status = obj.order_status.lower()
             # Once an order is accepted OR rejected, lock all fields (including status)

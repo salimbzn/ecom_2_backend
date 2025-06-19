@@ -30,7 +30,7 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["ecom-1qve.onrender.com", "localhost", "127.0.0.1"]
 
@@ -96,7 +96,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     # In production: use Postgres
     DATABASES = {
-        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
     }
 else:
     # Local dev: fallback to SQLite
