@@ -119,6 +119,7 @@ class OrderItem(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean() 
+        self.price = self.product.price * self.quantity if self.product else 0
         is_new_line = self.pk is None
         if is_new_line:
             self.price = self.product.price * self.quantity

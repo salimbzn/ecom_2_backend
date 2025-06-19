@@ -38,8 +38,7 @@ class OrderItemInline(admin.StackedInline):
     )
 
     def get_readonly_fields(self, request, obj=None):
-        if obj:
-            return ('product', 'quantity', 'price', 'get_product_size','get_product_color')
+        
         return ('price', 'get_product_size','get_product_color')
 
     def has_add_permission(self, request, obj=None):
@@ -148,26 +147,18 @@ class OrderAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if obj:
-            base = (
-                'id',
-                'costumer_name',
-                'costumer_phone',
-                'delivery_type',
-                'wilaya',
-                'commune',
-                'order_date',
-                'total_amount',
-                'delivery_fees',
-            )
             status = obj.order_status.lower()
             # Once an order is accepted OR rejected, lock all fields (including status)
             if status in ('accepted', 'rejected'):
-                return base + ('order_status',)
-            # If still pending, lock everything except order_status (so you can change it)
-            return base
+                return (
+                    'costumer_name', 'costumer_phone', 'order_date',
+                    'delivery_type', 'delivery_fees', 'wilaya', 'commune',
+                    'order_status', 'total_amount'
+                )
+
 
         # obj is None → Add form: only date & total are read‐only
-        return ('order_date', 'total_amount','order_status')
+        return ('order_date', 'total_amount')
 
     def order_status_badge(self, obj):
         COLOR = {
