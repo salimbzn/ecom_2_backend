@@ -1,5 +1,7 @@
 from django.db import models
-
+from decimal import Decimal
+from django.utils import timezone
+from datetime import timedelta
 # Create your models here.
 
 def upload_to(instance, filename):
@@ -20,6 +22,15 @@ class Product(models.Model):
     size = models.CharField(max_length=50, blank=True, null=True)
     stock = models.PositiveIntegerField(default=0)
     category = models.ForeignKey('Category', related_name='products', on_delete=models.CASCADE, blank=True, null=True)
+    discount_price = models.DecimalField(max_digits=10, decimal_places=2,blank=True, null=True)
+    sold = models.PositiveIntegerField(default=0)
+    @property
+    def is_new(self):
+        days = 7
+        return self.created_at >= timezone.now() - timedelta(days=days)
+    def get_discounted_price(self):
+        if self.discount_price:
+            return max(self.price - self.discount_price, Decimal('0.00'))
 
 
     def __str__(self):

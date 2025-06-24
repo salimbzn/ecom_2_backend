@@ -1,9 +1,11 @@
 # orders/models.py
 
+from decimal import Decimal
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from products.models import Product
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 
 CHOICES = (
     ('Pending', 'Pending'),
@@ -52,18 +54,23 @@ class Order(models.Model):
     def __str__(self):
         return f"Order {self.id} - {self.costumer_name} - {self.order_status}"
 
+    from decimal import Decimal
+
     def update_total(self):
         """
-        Recalculate total_amount by summing (variant.price * quantity) for all line items.
+        Recalculate total_amount by summing (discounted price or price) * quantity for all line items.
         Call this *after* items have been created or modified.
         """
         new_total = sum(
-            item.product.price * item.quantity
-            for item in self.items.all()
+            (
+                (item.product.discount_price if item.product and item.product.discount_price not in [None, Decimal('0.00'), 0] else item.product.price)
+                * item.quantity
+            )
+            for item in self.items.all() if item.product
         ) + (self.delivery_fees or 0)
         self.total_amount = new_total
         self.save(update_fields=["total_amount"])
-    
+        
     def clean(self):
         super().clean()
 
@@ -82,6 +89,7 @@ class Order(models.Model):
                                 f"requested {item.quantity}, available {item.product.stock}."
                             )
                         })
+                    
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -102,7 +110,10 @@ class Order(models.Model):
         if (not is_new) and (previous_status == "Pending") and (self.order_status == "Accepted"):
             for item in self.items.all():
                 item.update_stock()
-            # optionally: self.update_total()
+                if item.product:
+                    item.product.sold += item.quantity
+                    item.product.save(update_fields=['sold'])
+        # self.update_total()
 
 
 class OrderItem(models.Model):
@@ -118,12 +129,18 @@ class OrderItem(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        self.full_clean() 
-        self.price = self.product.price * self.quantity if self.product else 0
-        is_new_line = self.pk is None
-        if is_new_line:
-            self.price = self.product.price * self.quantity
+        self.full_clean()
+        if self.product and self.product.discount_price not in [None, Decimal('0.00'), 0]:
+            unit_price = self.product.discount_price
+        elif self.product:
+            unit_price = self.product.price
+        else:
+            self.price = 0
+        self.price = unit_price * self.quantity
         super().save(*args, **kwargs)
+        # Update the order's total amount whenever an item is saved
+        # if self.order:
+        #     self.order.update_total()
 
     def update_stock(self):
         """
