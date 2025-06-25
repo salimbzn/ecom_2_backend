@@ -11,13 +11,13 @@ class ProductSerializer(ModelSerializer):
             'updated_at': {'read_only': True},
         }
 
- 
-
 class CategorySerializer(ModelSerializer):
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ['id', 'name', 'description', 'image']  # Include image
         extra_kwargs = {
             'created_at': {'read_only': True},
             'updated_at': {'read_only': True},
         }
+ 
+

@@ -44,17 +44,21 @@ class Product(models.Model):
     
 
 
+def upload_category_image(instance, filename):
+    return f'categories/{instance.name}/{filename}'
+
 class Category(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+    image = models.ImageField(upload_to=upload_category_image, blank=True, null=True)  # <-- NEW FIELD
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural = "Categories"
+
     def __str__(self):
         return self.name
-    
 
 
 

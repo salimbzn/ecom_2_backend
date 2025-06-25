@@ -95,12 +95,20 @@ class ProductAdmin(admin.ModelAdmin):
             )
         return "(no image)"
     product_image_large_preview.short_description = "Current Image"
-    
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "name")
+    list_display = ("id", "name", "category_image_preview")
     list_display_links = ("id", "name")
     search_fields = ("name",)
     ordering = ("name",)
+    fields = ("name", "description", "image", "category_image_preview")
+    readonly_fields = ("category_image_preview",)
 
-    fields = ("name", "description")
+    def category_image_preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="height:50px; width:auto; object-fit:contain; border:1px solid #ccc; padding:2px;" />',
+                obj.image.url,
+            )
+        return "(no image)"
+    category_image_preview.short_description = "Image"
