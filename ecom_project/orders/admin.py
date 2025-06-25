@@ -172,7 +172,7 @@ class OrderAdmin(admin.ModelAdmin):
     order_status_badge.admin_order_field = 'order_status'
 
     def total_amount_formatted(self, obj):
-        return f"${obj.total_amount:.2f}"
+        return f"{obj.total_amount:.2f}DA"
     total_amount_formatted.short_description = 'Total'
     total_amount_formatted.admin_order_field = 'total_amount'
 

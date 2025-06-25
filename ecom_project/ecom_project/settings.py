@@ -153,6 +153,9 @@ MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL  = "/media/"
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / "static",    # <- your source static files
+]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
@@ -174,7 +177,9 @@ JAZZMIN_SETTINGS = {
     # Site Branding
     "site_title": "My Store Dashboard",
     "site_header": "🛒 Store Admin",
-    "site_logo": "<your-logo-path-here>.png",
+    "site_logo": "images/output.jpg",
+    "site_title": " ",   
+    "site_header": "E-commerce Admin",
     "welcome_sign": "Welcome, Store Owner!",
 
     # Navbar (top)
