@@ -2,13 +2,19 @@ from django.db import models
 from decimal import Decimal
 from django.utils import timezone
 from datetime import timedelta
+import re 
 # Create your models here.
 
-def upload_to(instance, filename):
-    return f'products/{instance.name}/{filename}'
+def clean_name(name):
+    # Replace spaces with underscores and remove invalid characters
+    name = name.strip().replace(' ', '_')
+    return re.sub(r'[^a-zA-Z0-9_-]', '', name)
 
-def upload_to_variant(instance, filename):
-    return f'products/{instance.product.name}/variants/{instance.name}/{filename}'
+def upload_to(instance, filename):
+    base_name = clean_name(instance.name)
+    return f'products/{base_name}/{filename}'
+# def upload_to_variant(instance, filename):
+#     return f'products/{instance.product.name}/variants/{instance.name}/{filename}'
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
