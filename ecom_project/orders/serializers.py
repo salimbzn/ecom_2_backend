@@ -69,10 +69,17 @@ class OrderSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items')
         order = Order.objects.create(**validated_data)
 
-        # Create OrderItem rows
+        # Prepare items for bulk_add_items
+        bulk_items = []
         for item_data in items_data:
-            OrderItem.objects.create(order=order, **item_data)
+            # item_data['product'] is a Product instance due to ModelSerializer
+            bulk_items.append({
+                "product": item_data["product"],
+                "quantity": item_data["quantity"],
+            })
 
-        # Recalculate total_amount
-        order.update_total()
+        # Use bulk_add_items for efficient creation
+        order.bulk_add_items(bulk_items)
+
+        # total_amount is updated
         return order
