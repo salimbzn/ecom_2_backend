@@ -1,0 +1,6 @@
+#site-logo img, .login-logo img {
+    max-width: 180px !important;
+    height: auto !important;
+    margin: 0 auto;
+    display: block;
+}

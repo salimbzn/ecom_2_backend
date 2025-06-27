@@ -1,0 +1,15 @@
+<!-- logo.svg -->
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="180" height="180" rx="32" fill="#4F8A8B"/>
+  <g>
+    <rect x="40" y="60" width="100" height="60" rx="12" fill="#fff"/>
+    <rect x="55" y="75" width="20" height="30" rx="4" fill="#FBD46D"/>
+    <rect x="80" y="75" width="20" height="30" rx="4" fill="#FBD46D"/>
+    <rect x="105" y="75" width="20" height="30" rx="4" fill="#FBD46D"/>
+    <rect x="50" y="100" width="80" height="10" rx="2" fill="#4F8A8B"/>
+    <circle cx="70" cy="120" r="8" fill="#F6416C"/>
+    <circle cx="110" cy="120" r="8" fill="#43AA8B"/>
+    <rect x="70" y="45" width="40" height="20" rx="8" fill="#F6416C"/>
+    <text x="90" y="60" text-anchor="middle" fill="#fff" font-size="12" font-family="Arial" font-weight="bold">ECOM</text>
+  </g>
+</svg>

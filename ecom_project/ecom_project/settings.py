@@ -177,7 +177,9 @@ JAZZMIN_SETTINGS = {
     # Site Branding
     "site_title": "My Store Dashboard",
     "site_header": "🛒 Store Admin",
-    "site_logo": "images/output.jpg",
+    "site_logo": "images/logo.svg",
+    "site_brand": "My Shop",
+    "custom_css": "css/jazzmin_overrides.css",  
     "site_title": " ",   
     "site_header": "E-commerce Admin",
     "welcome_sign": "Welcome, Store Owner!",
