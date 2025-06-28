@@ -1,19 +1,25 @@
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
-from .models import Product, Category , ProductImage
+from .models import Product, Category, ProductImage, ProductVariant
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
         fields = ['id', 'image', 'is_main']
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductVariant
+        fields = ['id', 'size', 'stock']
+
 class ProductListSerializer(serializers.ModelSerializer):
     main_image_url = serializers.SerializerMethodField()
+    variants = ProductVariantSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'price', 'discount_price', 'main_image_url', 'stock', 'sold', 'category'
+            'id', 'name', 'price', 'discount_price', 'main_image_url', 'sold', 'category', 'variants'
         ]
 
     def get_main_image_url(self, obj):
@@ -27,10 +33,11 @@ class ProductListSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     main_image_url = serializers.SerializerMethodField()
+    variants = ProductVariantSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = '__all__'  # or list all fields explicitly + 'images' + 'main_image_url'
+        fields = '__all__'  # or list all fields explicitly + 'images' + 'main_image_url' + 'variants'
 
     def get_main_image_url(self, obj):
         if obj.main_image:
@@ -48,5 +55,5 @@ class CategorySerializer(ModelSerializer):
             'created_at': {'read_only': True},
             'updated_at': {'read_only': True},
         }
- 
+
 

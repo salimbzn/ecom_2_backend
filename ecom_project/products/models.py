@@ -44,8 +44,6 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)  # Add db_index for "new" queries
     updated_at = models.DateTimeField(auto_now=True)
     color = models.CharField(max_length=50, blank=True, null=True, db_index=True)  # Add db_index for filtering
-    size = models.CharField(max_length=50, blank=True, null=True, db_index=True)   # Add db_index for filtering
-    stock = models.PositiveIntegerField(default=0, db_index=True)  # Add db_index for low-stock queries
     category = models.ForeignKey(
         Category,
         related_name='products',
@@ -103,5 +101,16 @@ class ProductImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.product.name}"
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, related_name='variants', on_delete=models.CASCADE)
+    size = models.CharField(max_length=50, db_index=True)
+    stock = models.PositiveIntegerField(default=0, db_index=True)
+
+    class Meta:
+        unique_together = ('product', 'size')
+
+    def __str__(self):
+        return f"{self.product.name} - Size {self.size}"
 
 # If you ever need to bulk create products, you can use Product.objects.bulk_create([...])

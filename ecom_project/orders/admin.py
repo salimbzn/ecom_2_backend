@@ -6,6 +6,7 @@ from django.utils.html import format_html
 from .models import Order, OrderItem, Wilaya, Commune
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from products.models import ProductVariant
 
 # @admin.register(Wilaya)
 # class WilayaAdmin(admin.ModelAdmin):
@@ -28,32 +29,33 @@ from django.core.exceptions import ValidationError
 class OrderItemInline(admin.StackedInline):
     model = OrderItem
     extra = 1
-
     fields = (
-        'product',
+        'product_variant',
         'quantity',
         'price',
+        'get_product_name',
         'get_product_size',
         'get_product_color',
     )
+    readonly_fields = ('price', 'get_product_name', 'get_product_size', 'get_product_color')
 
-    def get_readonly_fields(self, request, obj=None):
-        
-        return ('price', 'get_product_size','get_product_color')
+    def get_product_name(self, item_obj):
+        return item_obj.product_variant.product.name if item_obj.product_variant else "-"
+    get_product_name.short_description = 'Product'
+
+    def get_product_size(self, item_obj):
+        return item_obj.product_variant.size if item_obj.product_variant else "-"
+    get_product_size.short_description = 'Size'
+
+    def get_product_color(self, item_obj):
+        return item_obj.product_variant.product.color if item_obj.product_variant else "-"
+    get_product_color.short_description = 'Color'
 
     def has_add_permission(self, request, obj=None):
         return obj is None
 
     def has_delete_permission(self, request, obj=None):
         return obj is None
-
-    def get_product_size(self, item_obj):
-        return item_obj.product.size if item_obj.product else "-"
-    get_product_size.short_description = 'Size'
-
-    def get_product_color(self, item_obj):
-        return item_obj.product.color if item_obj.product else "-"
-    get_product_color.short_description = 'Color'
 
     def price_display(self, item_obj):
         return f"${item_obj.price:.2f}"

@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.forms.models import BaseInlineFormSet
 
-from .models import Product, Category, ProductImage
+from .models import Product, Category, ProductImage, ProductVariant  # Import ProductVariant
 
 
 class DiscountedListFilter(admin.SimpleListFilter):
@@ -56,10 +56,19 @@ class ProductImageInline(admin.TabularInline):
     image_preview.short_description = "Preview"
 
 
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
+    extra = 1
+    fields = ("size", "stock")
+    min_num = 1
+    verbose_name = "Available Size"
+    verbose_name_plural = "Available Sizes"
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
-        "id", "name", "price", "discount_price", "main_image_preview", "stock", "sold"
+        "id", "name", "price", "discount_price", "main_image_preview", "sold"
     )
     list_display_links = ("id", "name")
     list_filter = ("category", DiscountedListFilter)
@@ -68,9 +77,9 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ("main_image_preview", "get_discounted_price")
     fields = (
         "name", "description", "price", "discount_price", "get_discounted_price",
-        "category", "main_image_preview", "color", "size", "stock", "sold",
+        "category", "main_image_preview", "color", "sold",
     )
-    inlines = [ProductImageInline]
+    inlines = [ProductImageInline, ProductVariantInline]  # Add ProductVariantInline
 
     def get_discounted_price(self, obj):
         return obj.get_discounted_price()

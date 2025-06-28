@@ -3,7 +3,7 @@
 from decimal import Decimal
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
-from products.models import Product
+from products.models import Product, ProductVariant
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
 
@@ -53,18 +53,13 @@ class Order(models.Model):
         return f"Order {self.id} - {self.costumer_name} - {self.order_status}"
 
     def update_total(self):
-        """
-        Recalculate total_amount by summing (discounted price or price) * quantity for all line items.
-        Call this *after* items have been created or modified.
-        """
-        # Use select_related to optimize DB queries
-        items = self.items.select_related('product').all()
+        items = self.items.select_related('product_variant', 'product_variant__product').all()
         new_total = sum(
             (
-                (item.product.discount_price if item.product and item.product.discount_price not in [None, Decimal('0.00'), 0] else item.product.price)
+                (item.product_variant.product.discount_price if item.product_variant and item.product_variant.product.discount_price not in [None, Decimal('0.00'), 0] else item.product_variant.product.price)
                 * item.quantity
             )
-            for item in items if item.product
+            for item in items if item.product_variant and item.product_variant.product
         ) + (self.delivery_fees or 0)
         self.total_amount = new_total
         self.save(update_fields=["total_amount"])
@@ -77,13 +72,13 @@ class Order(models.Model):
             # …and only when flipping Pending→Accepted…
             if old_status == "Pending" and self.order_status == "Accepted":
                 # Use select_related to optimize DB queries
-                for item in self.items.select_related('product').all():
-                    if item.quantity > item.product.stock:
+                for item in self.items.select_related('product_variant').all():
+                    if item.quantity > item.product_variant.stock:
                         # attach to the order_status field
                         raise ValidationError({
                             "order_status": (
-                                f"Not enough stock for “{item.product}” – "
-                                f"requested {item.quantity}, available {item.product.stock}."
+                                f"Not enough stock for “{item.product_variant}” – "
+                                f"requested {item.quantity}, available {item.product_variant.stock}."
                             )
                         })
                     
@@ -105,11 +100,11 @@ class Order(models.Model):
         # only once, when Pending→Accepted:
         if (not is_new) and (previous_status == "Pending") and (self.order_status == "Accepted"):
             # Use select_related to optimize DB queries
-            for item in self.items.select_related('product').all():
+            for item in self.items.select_related('product_variant', 'product_variant__product').all():
                 item.update_stock()
-                if item.product:
-                    item.product.sold += item.quantity
-                    item.product.save(update_fields=['sold'])
+                if item.product_variant and item.product_variant.product:
+                    item.product_variant.product.sold += item.quantity
+                    item.product_variant.product.save(update_fields=['sold'])
         # self.update_total()
 
     def bulk_add_items(self, items_data):
@@ -124,9 +119,9 @@ class Order(models.Model):
         """
         order_items = []
         for data in items_data:
-            product = data["product"]
+            variant = data["product_variant"]
             quantity = data["quantity"]
-            # Calculate price as in OrderItem.save()
+            product = variant.product
             if product.discount_price not in [None, Decimal('0.00'), 0]:
                 unit_price = product.discount_price
             else:
@@ -134,7 +129,7 @@ class Order(models.Model):
             price = unit_price * quantity
             order_items.append(OrderItem(
                 order=self,
-                product=product,
+                product_variant=variant,
                 quantity=quantity,
                 price=price
             ))
@@ -143,43 +138,35 @@ class Order(models.Model):
         self.update_total()
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, db_index=True)  # Added db_index
-    product = models.ForeignKey(Product, on_delete=models.PROTECT, blank=True, null=True, db_index=True)  # Added db_index
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE, db_index=True)
+    product_variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT, blank=True, null=True, db_index=True)
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def clean(self):
-        if self.product and self.quantity > self.product.stock:
+        if self.product_variant and self.quantity > self.product_variant.stock:
             raise ValidationError(
-                f"Only {self.product.stock} units available for {self.product}. You requested {self.quantity}."
+                f"Only {self.product_variant.stock} units available for {self.product_variant}. You requested {self.quantity}."
             )
 
     def save(self, *args, **kwargs):
         self.full_clean()
-        if self.product and self.product.discount_price not in [None, Decimal('0.00'), 0]:
-            unit_price = self.product.discount_price
-        elif self.product:
-            unit_price = self.product.price
+        product = self.product_variant.product if self.product_variant else None
+        if product and product.discount_price not in [None, Decimal('0.00'), 0]:
+            unit_price = product.discount_price
+        elif product:
+            unit_price = product.price
         else:
             self.price = 0
             unit_price = 0
         self.price = unit_price * self.quantity
         super().save(*args, **kwargs)
-        # Update the order's total amount whenever an item is saved
-        # if self.order:
-        #     self.order.update_total()
 
     def update_stock(self):
-        """
-        Subtract this line’s quantity from the variant’s stock.
-        Called by Order.save() only once, when status flips to 'Accepted'.
-        """
-        # Optionally guard against negative stock:
-        if self.quantity > self.product.stock:
+        if self.quantity > self.product_variant.stock:
             raise ValueError("Insufficient stock to fulfill this order item.")
-
-        self.product.stock -= self.quantity
-        self.product.save(update_fields=['stock'])
+        self.product_variant.stock -= self.quantity
+        self.product_variant.save(update_fields=['stock'])
 
     def __str__(self):
-        return f"{self.quantity} x {self.product} for Order {self.order.id}"
+        return f"{self.quantity} x {self.product_variant} for Order {self.order.id}"
