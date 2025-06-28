@@ -6,14 +6,14 @@ from products.serializers import Product
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'quantity','price']
-        read_only_fields = ['id','price']
+        fields = ['id', 'product_variant', 'quantity', 'price']
+        read_only_fields = ['id', 'price']
+
     def validate(self, attrs):
         if attrs['quantity'] <= 0:
             raise serializers.ValidationError("Quantity must be greater than zero.")
-        if attrs['quantity'] > attrs['product'].stock:
+        if attrs['quantity'] > attrs['product_variant'].stock:
             raise serializers.ValidationError("Insufficient stock for this variant.")
-        
         return attrs
 
 
@@ -69,17 +69,12 @@ class OrderSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items')
         order = Order.objects.create(**validated_data)
 
-        # Prepare items for bulk_add_items
         bulk_items = []
         for item_data in items_data:
-            # item_data['product'] is a Product instance due to ModelSerializer
             bulk_items.append({
-                "product": item_data["product"],
+                "product_variant": item_data["product_variant"],
                 "quantity": item_data["quantity"],
             })
 
-        # Use bulk_add_items for efficient creation
         order.bulk_add_items(bulk_items)
-
-        # total_amount is updated
         return order
