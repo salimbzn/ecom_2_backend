@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView, ListAPIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -14,9 +13,8 @@ from .models import Product, Category
 from .serializers import ProductSerializer, CategorySerializer
 from products.filters import ProductFilter
 from products.cache import build_cache_key, get_or_set_cache
+from .pagination import ProductListPagination
 
-
-from .pagination import ProductListPagination  # adjust import path if needed
 
 class ProductListView(ListAPIView):
     queryset = Product.objects.all()
@@ -24,7 +22,7 @@ class ProductListView(ListAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = ProductFilter
     search_fields = ['name', 'description']
-    pagination_class = ProductListPagination  # ✅ Enable dynamic page size
+    pagination_class = ProductListPagination
 
     def list(self, request, *args, **kwargs):
         page_num = request.query_params.get('page', 1)
@@ -34,13 +32,22 @@ class ProductListView(ListAPIView):
 
         cache_key = build_cache_key("products:list", page=page_num, page_size=page_size, search=search, filters=filters_qs)
 
-        cached_data = cache.get(cache_key)
-        if cached_data is not None:
-            return Response(cached_data)
+        try:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+        except Exception:
+            cached_data = None  # Fail-safe fallback
 
         response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=300)
+
+        try:
+            cache.set(cache_key, response.data, timeout=300)
+        except Exception:
+            pass  # Don't crash if caching fails
+
         return response
+
 
 class ProductDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
@@ -54,7 +61,11 @@ class CategoryListView(ListAPIView):
 
     def list(self, request, *args, **kwargs):
         cache_key = build_cache_key("categories:all")
-        return Response(get_or_set_cache(cache_key, lambda: self.serializer_class(self.get_queryset(), many=True).data))
+
+        try:
+            return Response(get_or_set_cache(cache_key, lambda: self.serializer_class(self.get_queryset(), many=True).data))
+        except Exception:
+            return Response(self.serializer_class(self.get_queryset(), many=True).data)
 
 
 class DiscountedProductListView(ListAPIView):
@@ -77,12 +88,20 @@ class DiscountedProductListView(ListAPIView):
         page_num = request.query_params.get('page', 1)
         cache_key = build_cache_key("products:discounted", page=page_num, page_size=paginator.page_size)
 
-        cached_data = cache.get(cache_key)
-        if cached_data is not None:
-            return Response(cached_data)
+        try:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+        except Exception:
+            cached_data = None
 
         response = paginator.get_paginated_response(self.serializer_class(page, many=True).data)
-        cache.set(cache_key, response.data, timeout=300)
+
+        try:
+            cache.set(cache_key, response.data, timeout=300)
+        except Exception:
+            pass
+
         return response
 
 
@@ -107,12 +126,20 @@ class NewProductListView(ListAPIView):
         page_num = request.query_params.get('page', 1)
         cache_key = build_cache_key("products:new", page=page_num, page_size=paginator.page_size)
 
-        cached_data = cache.get(cache_key)
-        if cached_data is not None:
-            return Response(cached_data)
+        try:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+        except Exception:
+            cached_data = None
 
         response = paginator.get_paginated_response(self.serializer_class(page, many=True).data)
-        cache.set(cache_key, response.data, timeout=300)
+
+        try:
+            cache.set(cache_key, response.data, timeout=300)
+        except Exception:
+            pass
+
         return response
 
 
@@ -136,10 +163,18 @@ class TopOrderedProductsView(ListAPIView):
         page_num = request.query_params.get('page', 1)
         cache_key = build_cache_key("products:top", page=page_num, page_size=paginator.page_size)
 
-        cached_data = cache.get(cache_key)
-        if cached_data is not None:
-            return Response(cached_data)
+        try:
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+        except Exception:
+            cached_data = None
 
         response = paginator.get_paginated_response(self.serializer_class(page, many=True).data)
-        cache.set(cache_key, response.data, timeout=300)
+
+        try:
+            cache.set(cache_key, response.data, timeout=300)
+        except Exception:
+            pass
+
         return response
