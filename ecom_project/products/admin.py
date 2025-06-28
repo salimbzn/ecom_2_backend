@@ -1,16 +1,12 @@
-# products/admin.py
-
-# 1) Create a ModelForm that forces `color` to render as <input type="color">
-
-# 2) In your inline, tell it to use the new form
-
-
 from decimal import Decimal
-from django import forms
-from django.contrib import admin
-from django.core.exceptions import ValidationError
+from django.contrib import admin, messages
 from django.utils.html import format_html
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+from django.forms.models import BaseInlineFormSet
+
 from .models import Product, Category, ProductImage
+
 
 class DiscountedListFilter(admin.SimpleListFilter):
     title = 'Discounted'
@@ -29,11 +25,24 @@ class DiscountedListFilter(admin.SimpleListFilter):
             return queryset.filter(discount_price__isnull=True) | queryset.filter(discount_price=Decimal('0.00'))
         return queryset
 
+
+class ProductImageInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        image_count = sum(
+            1 for form in self.forms
+            if form.cleaned_data and not form.cleaned_data.get('DELETE', False)
+        )
+        if image_count < 1:
+            raise ValidationError(_('Please upload at least one image for this product.'))
+
+
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1
     fields = ("image", "is_main", "image_preview")
     readonly_fields = ("image_preview",)
+    formset = ProductImageInlineFormSet  # Use custom formset for validation
 
     def image_preview(self, obj):
         if obj.image:
@@ -46,53 +55,20 @@ class ProductImageInline(admin.TabularInline):
         return "(no image)"
     image_preview.short_description = "Preview"
 
-class ProductAdminForm(forms.ModelForm):
-    class Meta:
-        model = Product
-        fields = "__all__"
-
-    def clean(self):
-        cleaned_data = super().clean()
-        # Check for main image or at least one gallery image in the formset
-        main_image = cleaned_data.get("main_image")
-        images = self.instance.images.all()
-        # Check if this is a new object and images are in the formset
-        if not main_image and not images and not any(
-            form.cleaned_data and not form.cleaned_data.get("DELETE", False)
-            for form in self.formsets['images']
-        ):
-            raise ValidationError("You must add at least one image (main image or gallery image) for this product.")
-        return cleaned_data
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    form = ProductAdminForm
     list_display = (
-        "id",
-        "name",
-        "price",
-        "discount_price",
-        "main_image_preview",
-        "stock",
-        "sold"
+        "id", "name", "price", "discount_price", "main_image_preview", "stock", "sold"
     )
     list_display_links = ("id", "name")
-    list_filter = ("category",)
+    list_filter = ("category", DiscountedListFilter)
     search_fields = ("name",)
     ordering = ("name",)
     readonly_fields = ("main_image_preview", "get_discounted_price")
     fields = (
-        "name",
-        "description",
-        "price",
-        "discount_price",
-        "get_discounted_price",
-        "category",
-        "main_image_preview",  # This will show the main image bigger
-        "color",
-        "size",
-        "stock",
-        "sold",
+        "name", "description", "price", "discount_price", "get_discounted_price",
+        "category", "main_image_preview", "color", "size", "stock", "sold",
     )
     inlines = [ProductImageInline]
 
@@ -107,13 +83,24 @@ class ProductAdmin(admin.ModelAdmin):
             if main_img_obj and main_img_obj.image:
                 main_img = main_img_obj.image
         if main_img:
-            # SMALLER size for list_display
             return format_html(
                 '<img src="{}" style="height:60px; width:auto; object-fit:contain; border:1px solid #333; padding:2px;" />',
                 main_img.url,
             )
         return "(no image)"
     main_image_preview.short_description = "Main Image"
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        messages.success(request, _('Product saved successfully.'))
+
+    def save_formset(self, request, form, formset, change):
+        try:
+            formset.save()
+        except ValidationError as e:
+            self.message_user(request, str(e), level=messages.ERROR)
+            raise  # Stops saving
+
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
