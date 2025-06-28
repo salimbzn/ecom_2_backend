@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.utils import timezone
 from datetime import timedelta
 import re
+from django.core.exceptions import ValidationError
 
 # Utility to clean names for file paths
 def clean_name(name):
@@ -69,6 +70,16 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        super().clean()
+        # Check for at least one image (main_image or ProductImage)
+        if not self.main_image and not self.images.exists():
+            raise ValidationError("You must add at least one image (main image or gallery image) for this product.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Enforce clean() on save
+        super().save(*args, **kwargs)
+
     @classmethod
     def bulk_update_stock(cls, product_quantity_list):
         """
@@ -85,12 +96,15 @@ class Product(models.Model):
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
     image = models.ImageField(upload_to=upload_to)
-    is_main = models.BooleanField(default=False, db_index=True)  # Optional: mark as main
+    is_main = models.BooleanField(default=False, db_index=True)
 
     def save(self, *args, **kwargs):
-        # Ensure only one main image per product
-        if self.is_main:
-            ProductImage.objects.filter(product=self.product, is_main=True).update(is_main=False)
+        # If this is the first image for the product, set as main if none exists
+        if not self.product.images.exclude(pk=self.pk).filter(is_main=True).exists():
+            self.is_main = True
+        elif self.is_main:
+            # If this is set as main, unset others
+            ProductImage.objects.filter(product=self.product, is_main=True).exclude(pk=self.pk).update(is_main=False)
         super().save(*args, **kwargs)
 
     def __str__(self):
