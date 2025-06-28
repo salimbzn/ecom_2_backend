@@ -11,7 +11,11 @@ def clean_name(name):
     return re.sub(r'[^a-zA-Z0-9_-]', '', name)
 
 def upload_to(instance, filename):
-    base_name = clean_name(instance.name)
+    # If instance is ProductImage, use the related product's name
+    if hasattr(instance, 'product') and instance.product:
+        base_name = clean_name(instance.product.name)
+    else:
+        base_name = clean_name(getattr(instance, 'name', 'unnamed'))
     return f'products/{base_name}/{filename}'
 
 def upload_category_image(instance, filename):
@@ -38,7 +42,6 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)  # Add db_index for "new" queries
     updated_at = models.DateTimeField(auto_now=True)
-    image = models.ImageField(upload_to=upload_to)
     color = models.CharField(max_length=50, blank=True, null=True, db_index=True)  # Add db_index for filtering
     size = models.CharField(max_length=50, blank=True, null=True, db_index=True)   # Add db_index for filtering
     stock = models.PositiveIntegerField(default=0, db_index=True)  # Add db_index for low-stock queries
@@ -52,6 +55,7 @@ class Product(models.Model):
     )
     discount_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     sold = models.PositiveIntegerField(default=0, db_index=True)  # Add db_index for best-seller queries
+    main_image = models.ImageField(upload_to=upload_to, blank=True, null=True)  # New main image field
 
     @property
     def is_new(self):
@@ -77,5 +81,19 @@ class Product(models.Model):
             if pid in product_map:
                 product_map[pid].stock = max(product_map[pid].stock - qty, 0)
         cls.objects.bulk_update(products, ['stock'])
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, related_name='images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to=upload_to)
+    is_main = models.BooleanField(default=False, db_index=True)  # Optional: mark as main
+
+    def save(self, *args, **kwargs):
+        # Ensure only one main image per product
+        if self.is_main:
+            ProductImage.objects.filter(product=self.product, is_main=True).update(is_main=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Image for {self.product.name}"
 
 # If you ever need to bulk create products, you can use Product.objects.bulk_create([...])

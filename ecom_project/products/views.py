@@ -10,7 +10,11 @@ from datetime import timedelta
 from django.core.cache import cache
 
 from .models import Product, Category
-from .serializers import ProductSerializer, CategorySerializer
+from .serializers import (
+    ProductListSerializer,
+    ProductDetailSerializer,
+    CategorySerializer,
+)
 from products.filters import ProductFilter
 from products.cache import build_cache_key, get_or_set_cache
 from .pagination import ProductListPagination
@@ -18,7 +22,7 @@ from .pagination import ProductListPagination
 
 class ProductListView(ListAPIView):
     queryset = Product.objects.all()
-    serializer_class = ProductSerializer
+    serializer_class = ProductListSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = ProductFilter
     search_fields = ['name', 'description']
@@ -51,7 +55,7 @@ class ProductListView(ListAPIView):
 
 class ProductDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
-    serializer_class = ProductSerializer
+    serializer_class = ProductDetailSerializer
     lookup_field = 'id'
 
 
@@ -69,7 +73,7 @@ class CategoryListView(ListAPIView):
 
 
 class DiscountedProductListView(ListAPIView):
-    serializer_class = ProductSerializer
+    serializer_class = ProductListSerializer
 
     def get_queryset(self):
         return Product.objects.exclude(discount_price__isnull=True).exclude(discount_price=Decimal('0.00'))
@@ -106,7 +110,7 @@ class DiscountedProductListView(ListAPIView):
 
 
 class NewProductListView(ListAPIView):
-    serializer_class = ProductSerializer
+    serializer_class = ProductListSerializer
 
     def get_queryset(self):
         cutoff = timezone.now() - timedelta(days=7)
@@ -144,7 +148,7 @@ class NewProductListView(ListAPIView):
 
 
 class TopOrderedProductsView(ListAPIView):
-    serializer_class = ProductSerializer
+    serializer_class = ProductListSerializer
 
     def get_queryset(self):
         return Product.objects.order_by('-sold')
