@@ -6,7 +6,9 @@
 
 
 from decimal import Decimal
+from django import forms
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 from .models import Product, Category, ProductImage
 
@@ -44,8 +46,27 @@ class ProductImageInline(admin.TabularInline):
         return "(no image)"
     image_preview.short_description = "Preview"
 
+class ProductAdminForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Check for main image or at least one gallery image in the formset
+        main_image = cleaned_data.get("main_image")
+        images = self.instance.images.all()
+        # Check if this is a new object and images are in the formset
+        if not main_image and not images and not any(
+            form.cleaned_data and not form.cleaned_data.get("DELETE", False)
+            for form in self.formsets['images']
+        ):
+            raise ValidationError("You must add at least one image (main image or gallery image) for this product.")
+        return cleaned_data
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    form = ProductAdminForm
     list_display = (
         "id",
         "name",

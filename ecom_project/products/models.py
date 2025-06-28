@@ -70,12 +70,6 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
-    def clean(self):
-        super().clean()
-        # Check for at least one image (main_image or ProductImage)
-        if not self.main_image and not self.images.exists():
-            raise ValidationError("You must add at least one image (main image or gallery image) for this product.")
-
     def save(self, *args, **kwargs):
         self.full_clean()  # Enforce clean() on save
         super().save(*args, **kwargs)
