@@ -35,7 +35,8 @@ DEBUG = True
 ALLOWED_HOSTS = ["ecom-1qve.onrender.com", "localhost","ecom-shoe-b2nx.onrender.com", "127.0.0.1"]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://ecom-client-iqeq.onrender.com"
+    "https://ecom-client-iqeq.onrender.com",
+    "https://ecom-shoe-client.onrender.com"
     
 ]
 
