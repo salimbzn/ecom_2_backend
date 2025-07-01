@@ -18,7 +18,7 @@ urlpatterns = [
     path('discounted/', DiscountedProductListView.as_view(), name='discounted-product-list'),
     path('top-ordered/', TopOrderedProductsView.as_view(), name='top-ordered-products'),
     path('new-products/', NewProductListView.as_view(), name='new-product-list'),
-    path('products/discounted-home/', HomeDiscountedProductsView.as_view(), name='discounted-home'),
-    path('products/new-home/', HomeNewProductsView.as_view(), name='new-home'),
-    path('products/top-ordered-home/', HomeTopOrderedProductsView.as_view(), name='top-ordered-home'),
+    path('discounted-home/', HomeDiscountedProductsView.as_view(), name='discounted-home'),
+    path('new-home/', HomeNewProductsView.as_view(), name='new-home'),
+    path('top-ordered-home/', HomeTopOrderedProductsView.as_view(), name='top-ordered-home'),
 ]
