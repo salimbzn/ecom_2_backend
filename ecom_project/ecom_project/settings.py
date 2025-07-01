@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 2. Load it!
-#    This will read BASE_DIR/'.env' and put those values into os.environ
+#    This will read BASE_DIR'.env' and put those values into os.environ
 load_dotenv(BASE_DIR / ".env")
 
 # 3. Now you can safely pull them out
@@ -120,12 +120,8 @@ DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 CACHES = {
     "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.environ.get("REDIS_URL"),  # Upstash Redis URL
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "SSL": True,
-        }
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
     }
 }
 

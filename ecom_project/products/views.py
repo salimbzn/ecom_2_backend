@@ -3,6 +3,8 @@ from decimal import Decimal
 from datetime import timedelta
 
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
@@ -29,6 +31,7 @@ class StandardPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@method_decorator(cache_page(300), name='dispatch')
 class ProductListView(ListAPIView):
     """
     /api/products/list
@@ -43,9 +46,8 @@ class ProductListView(ListAPIView):
     def get_queryset(self):
         return (
             Product.objects
-                   .select_related('category')
-                   .prefetch_related('images', 'variants')
-                   .all()
+                .only('id', 'name', 'price', 'discount_price', 'category', 'main_image', 'created_at')
+                .select_related('category')
         )
 
 
@@ -59,10 +61,10 @@ class DiscountedProductListView(ListAPIView):
     def get_queryset(self):
         return (
             Product.objects
-                   .exclude(discount_price__isnull=True)
-                   .exclude(discount_price=Decimal('0.00'))
-                   .select_related('category')
-                   .prefetch_related('images', 'variants')
+                .only('id', 'name', 'price', 'discount_price', 'category', 'main_image', 'created_at')
+                .exclude(discount_price__isnull=True)
+                .exclude(discount_price=Decimal('0.00'))
+                .select_related('category')
         )
 
 
@@ -77,9 +79,9 @@ class NewProductListView(ListAPIView):
         cutoff = timezone.now() - timedelta(days=7)
         return (
             Product.objects
-                   .filter(created_at__gte=cutoff)
-                   .select_related('category')
-                   .prefetch_related('images', 'variants')
+                .only('id', 'name', 'price', 'discount_price', 'category', 'main_image', 'created_at')
+                .filter(created_at__gte=cutoff)
+                .select_related('category')
         )
 
 
@@ -93,9 +95,9 @@ class TopOrderedProductsView(ListAPIView):
     def get_queryset(self):
         return (
             Product.objects
-                   .order_by('-sold')
-                   .select_related('category')
-                   .prefetch_related('images', 'variants')
+                .only('id', 'name', 'price', 'discount_price', 'category', 'main_image', 'created_at')
+                .order_by('-sold')
+                .select_related('category')
         )
 
 
@@ -125,6 +127,7 @@ class CategoryListView(ListAPIView):
         return Response(data)
 
 
+@method_decorator(cache_page(300), name='dispatch')
 class HomeDiscountedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None  # No pagination, just top 4
@@ -132,14 +135,15 @@ class HomeDiscountedProductsView(ListAPIView):
     def get_queryset(self):
         return (
             Product.objects
-            .exclude(discount_price__isnull=True)
-            .exclude(discount_price=0)
-            .order_by('-discount_price')[:4]
-            .select_related('category')
-            .prefetch_related('images', 'variants')
+                .only('id', 'name', 'price', 'discount_price', 'category', 'main_image', 'created_at')
+                .exclude(discount_price__isnull=True)
+                .exclude(discount_price=0)
+                .order_by('-discount_price')[:4]
+                .select_related('category')
         )
 
 
+@method_decorator(cache_page(300), name='dispatch')
 class HomeNewProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
@@ -148,13 +152,14 @@ class HomeNewProductsView(ListAPIView):
         cutoff = timezone.now() - timedelta(days=7)
         return (
             Product.objects
-            .filter(created_at__gte=cutoff)
-            .order_by('-created_at')[:4]
-            .select_related('category')
-            .prefetch_related('images', 'variants')
+                .only('id', 'name', 'price', 'discount_price', 'category', 'main_image', 'created_at')
+                .filter(created_at__gte=cutoff)
+                .order_by('-created_at')[:4]
+                .select_related('category')
         )
 
 
+@method_decorator(cache_page(300), name='dispatch')
 class HomeTopOrderedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
@@ -162,7 +167,7 @@ class HomeTopOrderedProductsView(ListAPIView):
     def get_queryset(self):
         return (
             Product.objects
-            .order_by('-sold')[:4]
-            .select_related('category')
-            .prefetch_related('images', 'variants')
+                .only('id', 'name', 'price', 'discount_price', 'category', 'main_image', 'created_at')
+                .order_by('-sold')[:4]
+                .select_related('category')
         )
