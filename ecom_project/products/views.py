@@ -3,9 +3,7 @@ from decimal import Decimal
 from datetime import timedelta
 
 from django.utils import timezone
-from django.core.cache import cache
 
-from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.pagination import PageNumberPagination
@@ -21,59 +19,20 @@ from .serializers import (
     CategorySerializer,
 )
 from products.filters import ProductFilter
-from products.cache import build_cache_key
 
 
-class CachedListMixin:
-    cache_prefix = None
-
-    def list(self, request, *args, **kwargs):
-        # 1) build cache key safely
-        try:
-            page      = request.query_params.get('page', 1)
-            page_size = request.query_params.get('page_size', api_settings.PAGE_SIZE)
-            params    = { k: v for k, v in request.query_params.items() if k not in ['page', 'page_size'] }
-            cache_key = build_cache_key(self.cache_prefix, page=page, page_size=page_size, **params)
-        except Exception as e:
-            # log the error so you can see it in your Django log
-            print(f"[CacheKeyError] {self.__class__.__name__}: {e}")
-            cache_key = None
-
-        # 2) attempt cache read
-        if cache_key:
-            data = cache.get(cache_key)
-            if data is not None:
-                return Response(data)
-
-        # 3) fall back to normal DRF pagination
-        paginator = PageNumberPagination()
-        paginator.page_size = int(page_size)
-
-        qs   = self.get_queryset()
-        page = paginator.paginate_queryset(qs, request)
-        if page is None:
-            return Response({"results": [], "count": 0})
-
-        serializer = self.serializer_class(page, many=True)
-        response  = paginator.get_paginated_response(serializer.data)
-
-        # 4) attempt cache write
-        if cache_key:
-            try:
-                cache.set(cache_key, response.data, timeout=300)
-            except Exception as e:
-                print(f"[CacheSetError] {self.__class__.__name__}: {e}")
-
-        return response
+class StandardPagination(PageNumberPagination):
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
-class ProductListView(CachedListMixin, ListAPIView):
+class ProductListView(ListAPIView):
     """
     /api/products/list
     supports ?page, ?page_size, ?search, ?category, plus any ProductFilter fields
     """
-    cache_prefix     = "products:list"
     serializer_class = ProductListSerializer
+    pagination_class = StandardPagination
     filter_backends  = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class  = ProductFilter
     search_fields    = ['name', 'description']
@@ -87,12 +46,12 @@ class ProductListView(CachedListMixin, ListAPIView):
         )
 
 
-class DiscountedProductListView(CachedListMixin, ListAPIView):
+class DiscountedProductListView(ListAPIView):
     """
     /api/products/discounted
     """
-    cache_prefix     = "products:discounted"
     serializer_class = ProductListSerializer
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         return (
@@ -104,12 +63,12 @@ class DiscountedProductListView(CachedListMixin, ListAPIView):
         )
 
 
-class NewProductListView(CachedListMixin, ListAPIView):
+class NewProductListView(ListAPIView):
     """
     /api/products/new-products
     """
-    cache_prefix     = "products:new"
     serializer_class = ProductListSerializer
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         cutoff = timezone.now() - timedelta(days=7)
@@ -121,12 +80,12 @@ class NewProductListView(CachedListMixin, ListAPIView):
         )
 
 
-class TopOrderedProductsView(CachedListMixin, ListAPIView):
+class TopOrderedProductsView(ListAPIView):
     """
     /api/products/top-ordered
     """
-    cache_prefix     = "products:top"
     serializer_class = ProductListSerializer
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         return (
@@ -155,17 +114,9 @@ class CategoryListView(ListAPIView):
     /api/products/category/list
     """
     serializer_class = CategorySerializer
+    pagination_class = None  # return all categories without pagination
 
     def list(self, request, *args, **kwargs):
-        cache_key = build_cache_key("categories:all")
-
-        data = cache.get(cache_key)
-        if data is None:
-            qs   = Category.objects.all()
-            data = self.serializer_class(qs, many=True).data
-            try:
-                cache.set(cache_key, data, timeout=300)
-            except Exception:
-                pass
-
+        qs = Category.objects.all()
+        data = self.serializer_class(qs, many=True).data
         return Response(data)
