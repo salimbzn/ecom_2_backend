@@ -13,6 +13,7 @@ from rest_framework.generics import (
     ListAPIView,
     RetrieveUpdateDestroyAPIView,
 )
+from rest_framework.views import APIView
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
@@ -22,6 +23,8 @@ from .serializers import (
     ProductListSerializer,
     ProductDetailSerializer,
     CategorySerializer,
+    ProductImageSerializer,
+    ProductVariantSerializer,
 )
 from products.filters import ProductFilter
 
@@ -107,6 +110,10 @@ class ProductDetailView(RetrieveUpdateDestroyAPIView):
     """
     queryset         = (
         Product.objects
+               .only(
+                   'id', 'name', 'description', 'price', 'discount_price', 'category',
+                   'main_image', 'created_at', 'updated_at'
+               )
                .select_related('category')
                .prefetch_related('images', 'variants')
     )
@@ -171,3 +178,14 @@ class HomeTopOrderedProductsView(ListAPIView):
                 .order_by('-sold')[:4]
                 .select_related('category')
         )
+
+
+class ProductExtrasView(APIView):
+    def get(self, request, id):
+        product = Product.objects.get(id=id)
+        images = ProductImageSerializer(product.images.all(), many=True).data
+        variants = ProductVariantSerializer(product.variants.all(), many=True).data
+        return Response({
+            "images": images,
+            "variants": variants,
+        })

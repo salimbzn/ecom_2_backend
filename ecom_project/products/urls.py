@@ -9,6 +9,7 @@ from .views import (
     HomeDiscountedProductsView,
     HomeNewProductsView,
     HomeTopOrderedProductsView,
+    ProductExtrasView,
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     path('discounted-home/', HomeDiscountedProductsView.as_view(), name='discounted-home'),
     path('new-home/', HomeNewProductsView.as_view(), name='new-home'),
     path('top-ordered-home/', HomeTopOrderedProductsView.as_view(), name='top-ordered-home'),
+    path('<int:id>/extras/', ProductExtrasView.as_view(), name='product-extras'),
 ]
