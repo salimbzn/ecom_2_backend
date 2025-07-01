@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.forms.models import BaseInlineFormSet
 
-from .models import Product, Category, ProductImage, ProductVariant  # Import ProductVariant
+from .models import Product, Category, ProductImage, ProductVariant
 
 
 class DiscountedListFilter(admin.SimpleListFilter):
@@ -39,18 +39,17 @@ class ProductImageInlineFormSet(BaseInlineFormSet):
 
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
-    extra = 1
+    extra = 0
     fields = ("image", "is_main", "image_preview")
     readonly_fields = ("image_preview",)
-    formset = ProductImageInlineFormSet  # Use custom formset for validation
+    formset = ProductImageInlineFormSet
+    show_change_link = True
 
     def image_preview(self, obj):
         if obj.image:
             return format_html(
-                '<a href="{0}" target="_blank">'
-                '<img src="{0}" style="height:120px; width:auto; object-fit:contain; border:1px solid #ccc; padding:2px;" />'
-                '</a>',
-                obj.image.url,
+                '<img src="{}" style="height:100px; width:auto; object-fit:contain; border:1px solid #ccc;" loading="lazy"/>',
+                obj.image.url
             )
         return "(no image)"
     image_preview.short_description = "Preview"
@@ -58,7 +57,7 @@ class ProductImageInline(admin.TabularInline):
 
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
-    extra = 1
+    extra = 0
     fields = ("size", "stock")
     min_num = 1
     verbose_name = "Available Size"
@@ -67,19 +66,28 @@ class ProductVariantInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    # ⚠️ Removed image from list to boost performance
     list_display = (
-        "id", "name", "price", "discount_price", "main_image_preview", "sold"
+        "id", "name", "price", "discount_price", "sold"
     )
     list_display_links = ("id", "name")
     list_filter = ("category", DiscountedListFilter)
     search_fields = ("name",)
-    ordering = ("name",)
+    ordering = ("-id",)
+
     readonly_fields = ("main_image_preview", "get_discounted_price")
     fields = (
         "name", "description", "price", "discount_price", "get_discounted_price",
         "category", "main_image_preview", "color", "sold",
     )
-    inlines = [ProductImageInline, ProductVariantInline]  # Add ProductVariantInline
+
+    inlines = [ProductImageInline, ProductVariantInline]
+
+    def get_queryset(self, request):
+        # Avoid heavy joins for admin list view
+        return super().get_queryset(request).only(
+            'id', 'name', 'price', 'discount_price', 'sold', 'category', 'color'
+        )
 
     def get_discounted_price(self, obj):
         return obj.get_discounted_price()
@@ -88,13 +96,13 @@ class ProductAdmin(admin.ModelAdmin):
     def main_image_preview(self, obj):
         main_img = obj.main_image
         if not main_img:
-            main_img_obj = obj.images.filter(is_main=True).first()
+            main_img_obj = obj.images.filter(is_main=True).only('image').first()
             if main_img_obj and main_img_obj.image:
                 main_img = main_img_obj.image
         if main_img:
             return format_html(
-                '<img src="{}" style="height:60px; width:auto; object-fit:contain; border:1px solid #333; padding:2px;" />',
-                main_img.url,
+                '<img src="{}" style="height:60px; width:auto; object-fit:contain; border:1px solid #ccc;" loading="lazy"/>',
+                main_img.url
             )
         return "(no image)"
     main_image_preview.short_description = "Main Image"
@@ -108,12 +116,12 @@ class ProductAdmin(admin.ModelAdmin):
             formset.save()
         except ValidationError as e:
             self.message_user(request, str(e), level=messages.ERROR)
-            raise  # Stops saving
+            raise
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "category_image_preview")
+    list_display = ("id", "name")  # ⚠️ Removed image preview here too
     list_display_links = ("id", "name")
     search_fields = ("name",)
     ordering = ("name",)
@@ -123,8 +131,8 @@ class CategoryAdmin(admin.ModelAdmin):
     def category_image_preview(self, obj):
         if obj.image:
             return format_html(
-                '<img src="{}" style="height:50px; width:auto; object-fit:contain; border:1px solid #ccc; padding:2px;" />',
-                obj.image.url,
+                '<img src="{}" style="height:50px; width:auto; object-fit:contain; border:1px solid #ccc;" loading="lazy"/>',
+                obj.image.url
             )
         return "(no image)"
     category_image_preview.short_description = "Image"
