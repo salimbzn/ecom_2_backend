@@ -54,6 +54,7 @@ class ProductListView(ListAPIView):
         )
 
 
+@method_decorator(cache_page(60*60), name='dispatch')
 class DiscountedProductListView(ListAPIView):
     """
     /api/products/discounted
@@ -70,7 +71,7 @@ class DiscountedProductListView(ListAPIView):
                 .select_related('category')
         )
 
-
+@method_decorator(cache_page(60*60), name='dispatch')
 class NewProductListView(ListAPIView):
     """
     /api/products/new-products
