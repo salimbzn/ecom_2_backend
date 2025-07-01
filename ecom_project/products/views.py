@@ -25,47 +25,44 @@ from products.cache import build_cache_key
 
 
 class CachedListMixin:
-    """
-    Mixin to paginate, cache and respond consistently.
-    Expects:
-      - self.queryset
-      - self.serializer_class
-      - self.cache_prefix (override in subclasses)
-    """
-    cache_prefix = None   # e.g. "products:list"
+    cache_prefix = None
 
     def list(self, request, *args, **kwargs):
-        page_num   = request.query_params.get('page', 1)
-        page_size  = request.query_params.get('page_size', api_settings.PAGE_SIZE)
-        params     = request.query_params.dict()
-        params.pop('page', None)
+        # 1) build cache key safely
+        try:
+            page      = request.query_params.get('page', 1)
+            page_size = request.query_params.get('page_size', api_settings.PAGE_SIZE)
+            params    = { k: v for k, v in request.query_params.items() if k not in ['page', 'page_size'] }
+            cache_key = build_cache_key(self.cache_prefix, page=page, page_size=page_size, **params)
+        except Exception as e:
+            # log the error so you can see it in your Django log
+            print(f"[CacheKeyError] {self.__class__.__name__}: {e}")
+            cache_key = None
 
-        cache_key = build_cache_key(
-            self.cache_prefix,
-            page=page_num,
-            page_size=page_size,
-            **params
-        )
+        # 2) attempt cache read
+        if cache_key:
+            data = cache.get(cache_key)
+            if data is not None:
+                return Response(data)
 
-        # Try cache
-        data = cache.get(cache_key)
-        if data is not None:
-            return Response(data)
-
-        # Paginate & serialize
+        # 3) fall back to normal DRF pagination
         paginator = PageNumberPagination()
         paginator.page_size = int(page_size)
 
-        qs = self.get_queryset()
+        qs   = self.get_queryset()
         page = paginator.paginate_queryset(qs, request)
-        serializer = self.serializer_class(page, many=True)
-        response = paginator.get_paginated_response(serializer.data)
+        if page is None:
+            return Response({"results": [], "count": 0})
 
-        # Store in cache
-        try:
-            cache.set(cache_key, response.data, timeout=300)
-        except Exception:
-            pass
+        serializer = self.serializer_class(page, many=True)
+        response  = paginator.get_paginated_response(serializer.data)
+
+        # 4) attempt cache write
+        if cache_key:
+            try:
+                cache.set(cache_key, response.data, timeout=300)
+            except Exception as e:
+                print(f"[CacheSetError] {self.__class__.__name__}: {e}")
 
         return response
 
