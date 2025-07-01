@@ -1,4 +1,3 @@
-# views.py
 from decimal import Decimal
 from datetime import timedelta
 
@@ -7,7 +6,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 
 from rest_framework.response import Response
-from rest_framework.settings import api_settings
+from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.generics import (
     ListAPIView,
@@ -28,13 +27,17 @@ from .serializers import (
 )
 from products.filters import ProductFilter
 
-
+# Pagination
 class StandardPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+# Cache TTLs
+TWO_HOURS = 60 * 60 * 2      # 2 hours
+THREE_HOURS = 60 * 60 * 3    # 3 hours
+SHORT_CACHE = 60 * 3         # 3 minutes (for extras)
 
-@method_decorator(cache_page(60*60), name='dispatch')
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class ProductListView(ListAPIView):
     """
     /api/products/list
@@ -53,8 +56,7 @@ class ProductListView(ListAPIView):
                 .select_related('category')
         )
 
-
-@method_decorator(cache_page(60*60), name='dispatch')
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class DiscountedProductListView(ListAPIView):
     """
     /api/products/discounted
@@ -71,7 +73,7 @@ class DiscountedProductListView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(60*60), name='dispatch')
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class NewProductListView(ListAPIView):
     """
     /api/products/new-products
@@ -88,7 +90,7 @@ class NewProductListView(ListAPIView):
                 .select_related('category')
         )
 
-
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class TopOrderedProductsView(ListAPIView):
     """
     /api/products/top-ordered
@@ -104,7 +106,7 @@ class TopOrderedProductsView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(120), name='dispatch')
+@method_decorator(cache_page(THREE_HOURS), name='dispatch')
 class ProductDetailView(RetrieveUpdateDestroyAPIView):
     """
     /api/products/<id>/
@@ -121,7 +123,7 @@ class ProductDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = ProductDetailSerializer
     lookup_field     = 'id'
 
-@method_decorator(cache_page(60*120), name='dispatch')
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class CategoryListView(ListAPIView):
     """
     /api/products/category/list
@@ -134,8 +136,7 @@ class CategoryListView(ListAPIView):
         data = self.serializer_class(qs, many=True).data
         return Response(data)
 
-
-@method_decorator(cache_page(60*60), name='dispatch')
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class HomeDiscountedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None  # No pagination, just top 4
@@ -150,8 +151,7 @@ class HomeDiscountedProductsView(ListAPIView):
                 .select_related('category')
         )
 
-
-@method_decorator(cache_page(60*60), name='dispatch')
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class HomeNewProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
@@ -166,8 +166,7 @@ class HomeNewProductsView(ListAPIView):
                 .select_related('category')
         )
 
-
-@method_decorator(cache_page(60*60), name='dispatch')
+@method_decorator(cache_page(TWO_HOURS), name='dispatch')
 class HomeTopOrderedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
@@ -180,13 +179,26 @@ class HomeTopOrderedProductsView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(180), name='dispatch')
-class ProductExtrasView(APIView):
+# @method_decorator(cache_page(SHORT_CACHE), name='dispatch')
+# class ProductExtrasView(APIView):
+#     def get(self, request, id):
+#         product = Product.objects.get(id=id)
+#         images = ProductImageSerializer(product.images.all(), many=True).data
+#         variants = ProductVariantSerializer(product.variants.all(), many=True).data
+#         return Response({
+#             "images": images,
+#             "variants": variants,
+#         })
+
+class ProductVariantsView(APIView):
+    """
+    /api/products/<id>/variants/
+    Returns only the variants for a product (not cached).
+    """
     def get(self, request, id):
-        product = Product.objects.get(id=id)
-        images = ProductImageSerializer(product.images.all(), many=True).data
+        try:
+            product = Product.objects.get(id=id)
+        except Product.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         variants = ProductVariantSerializer(product.variants.all(), many=True).data
-        return Response({
-            "images": images,
-            "variants": variants,
-        })
+        return Response({"variants": variants})
