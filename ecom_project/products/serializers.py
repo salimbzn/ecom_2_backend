@@ -14,8 +14,6 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 class ProductListSerializer(serializers.ModelSerializer):
     main_image_url = serializers.SerializerMethodField()
-    variants = ProductVariantSerializer(many=True, read_only=True)
-
     class Meta:
         model = Product
         fields = [
