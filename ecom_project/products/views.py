@@ -1,13 +1,18 @@
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView, ListAPIView
+# views.py
+from decimal import Decimal
+from datetime import timedelta
+
+from django.utils import timezone
+from django.core.cache import cache
+
+from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.settings import api_settings
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.generics import ListAPIView, RetrieveUpdateDestroyAPIView
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
-from decimal import Decimal
-from django.utils import timezone
-from datetime import timedelta
-from django.core.cache import cache
 
 from .models import Product, Category
 from .serializers import (
@@ -16,169 +21,154 @@ from .serializers import (
     CategorySerializer,
 )
 from products.filters import ProductFilter
-from products.cache import build_cache_key, get_or_set_cache
-from .pagination import ProductListPagination
+from products.cache import build_cache_key
 
 
-class ProductListView(ListAPIView):
-    queryset = Product.objects.all()
-    serializer_class = ProductListSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_class = ProductFilter
-    search_fields = ['name', 'description']
-    pagination_class = ProductListPagination
+class CachedListMixin:
+    """
+    Mixin to paginate, cache and respond consistently.
+    Expects:
+      - self.queryset
+      - self.serializer_class
+      - self.cache_prefix (override in subclasses)
+    """
+    cache_prefix = None   # e.g. "products:list"
 
     def list(self, request, *args, **kwargs):
-        page_num = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', api_settings.PAGE_SIZE)
-        search = request.query_params.get('search', '')
-        filters_qs = '&'.join([f"{k}={v}" for k, v in request.query_params.items() if k != 'page'])
+        page_num   = request.query_params.get('page', 1)
+        page_size  = request.query_params.get('page_size', api_settings.PAGE_SIZE)
+        params     = request.query_params.dict()
+        params.pop('page', None)
 
-        cache_key = build_cache_key("products:list", page=page_num, page_size=page_size, search=search, filters=filters_qs)
+        cache_key = build_cache_key(
+            self.cache_prefix,
+            page=page_num,
+            page_size=page_size,
+            **params
+        )
 
-        try:
-            cached_data = cache.get(cache_key)
-            if cached_data is not None:
-                return Response(cached_data)
-        except Exception:
-            cached_data = None  # Fail-safe fallback
+        # Try cache
+        data = cache.get(cache_key)
+        if data is not None:
+            return Response(data)
 
-        response = super().list(request, *args, **kwargs)
+        # Paginate & serialize
+        paginator = PageNumberPagination()
+        paginator.page_size = int(page_size)
 
+        qs = self.get_queryset()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = self.serializer_class(page, many=True)
+        response = paginator.get_paginated_response(serializer.data)
+
+        # Store in cache
         try:
             cache.set(cache_key, response.data, timeout=300)
         except Exception:
-            pass  # Don't crash if caching fails
+            pass
 
         return response
 
 
+class ProductListView(CachedListMixin, ListAPIView):
+    """
+    /api/products/list
+    supports ?page, ?page_size, ?search, ?category, plus any ProductFilter fields
+    """
+    cache_prefix     = "products:list"
+    serializer_class = ProductListSerializer
+    filter_backends  = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_class  = ProductFilter
+    search_fields    = ['name', 'description']
+
+    def get_queryset(self):
+        return (
+            Product.objects
+                   .select_related('category')
+                   .prefetch_related('images', 'variants')
+                   .all()
+        )
+
+
+class DiscountedProductListView(CachedListMixin, ListAPIView):
+    """
+    /api/products/discounted
+    """
+    cache_prefix     = "products:discounted"
+    serializer_class = ProductListSerializer
+
+    def get_queryset(self):
+        return (
+            Product.objects
+                   .exclude(discount_price__isnull=True)
+                   .exclude(discount_price=Decimal('0.00'))
+                   .select_related('category')
+                   .prefetch_related('images', 'variants')
+        )
+
+
+class NewProductListView(CachedListMixin, ListAPIView):
+    """
+    /api/products/new-products
+    """
+    cache_prefix     = "products:new"
+    serializer_class = ProductListSerializer
+
+    def get_queryset(self):
+        cutoff = timezone.now() - timedelta(days=7)
+        return (
+            Product.objects
+                   .filter(created_at__gte=cutoff)
+                   .select_related('category')
+                   .prefetch_related('images', 'variants')
+        )
+
+
+class TopOrderedProductsView(CachedListMixin, ListAPIView):
+    """
+    /api/products/top-ordered
+    """
+    cache_prefix     = "products:top"
+    serializer_class = ProductListSerializer
+
+    def get_queryset(self):
+        return (
+            Product.objects
+                   .order_by('-sold')
+                   .select_related('category')
+                   .prefetch_related('images', 'variants')
+        )
+
+
 class ProductDetailView(RetrieveUpdateDestroyAPIView):
-    queryset = Product.objects.all()
+    """
+    /api/products/<id>/
+    """
+    queryset         = (
+        Product.objects
+               .select_related('category')
+               .prefetch_related('images', 'variants')
+    )
     serializer_class = ProductDetailSerializer
-    lookup_field = 'id'
+    lookup_field     = 'id'
 
 
 class CategoryListView(ListAPIView):
-    queryset = Category.objects.all()
+    """
+    /api/products/category/list
+    """
     serializer_class = CategorySerializer
 
     def list(self, request, *args, **kwargs):
         cache_key = build_cache_key("categories:all")
 
-        try:
-            return Response(get_or_set_cache(cache_key, lambda: self.serializer_class(self.get_queryset(), many=True).data))
-        except Exception:
-            return Response(self.serializer_class(self.get_queryset(), many=True).data)
+        data = cache.get(cache_key)
+        if data is None:
+            qs   = Category.objects.all()
+            data = self.serializer_class(qs, many=True).data
+            try:
+                cache.set(cache_key, data, timeout=300)
+            except Exception:
+                pass
 
-
-class DiscountedProductListView(ListAPIView):
-    serializer_class = ProductListSerializer
-
-    def get_queryset(self):
-        return Product.objects.exclude(discount_price__isnull=True).exclude(discount_price=Decimal('0.00'))
-
-    def get(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        paginator = PageNumberPagination()
-
-        page_size = request.query_params.get('page_size')
-        paginator.page_size = int(page_size) if page_size else api_settings.PAGE_SIZE
-
-        page = paginator.paginate_queryset(queryset, request)
-        if page is None:
-            return Response({"results": [], "count": 0})
-
-        page_num = request.query_params.get('page', 1)
-        cache_key = build_cache_key("products:discounted", page=page_num, page_size=paginator.page_size)
-
-        try:
-            cached_data = cache.get(cache_key)
-            if cached_data is not None:
-                return Response(cached_data)
-        except Exception:
-            cached_data = None
-
-        response = paginator.get_paginated_response(self.serializer_class(page, many=True).data)
-
-        try:
-            cache.set(cache_key, response.data, timeout=300)
-        except Exception:
-            pass
-
-        return response
-
-
-class NewProductListView(ListAPIView):
-    serializer_class = ProductListSerializer
-
-    def get_queryset(self):
-        cutoff = timezone.now() - timedelta(days=7)
-        return Product.objects.filter(created_at__gte=cutoff)
-
-    def get(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        paginator = PageNumberPagination()
-
-        page_size = request.query_params.get('page_size')
-        paginator.page_size = int(page_size) if page_size else api_settings.PAGE_SIZE
-
-        page = paginator.paginate_queryset(queryset, request)
-        if page is None:
-            return Response({"results": [], "count": 0})
-
-        page_num = request.query_params.get('page', 1)
-        cache_key = build_cache_key("products:new", page=page_num, page_size=paginator.page_size)
-
-        try:
-            cached_data = cache.get(cache_key)
-            if cached_data is not None:
-                return Response(cached_data)
-        except Exception:
-            cached_data = None
-
-        response = paginator.get_paginated_response(self.serializer_class(page, many=True).data)
-
-        try:
-            cache.set(cache_key, response.data, timeout=300)
-        except Exception:
-            pass
-
-        return response
-
-
-class TopOrderedProductsView(ListAPIView):
-    serializer_class = ProductListSerializer
-
-    def get_queryset(self):
-        return Product.objects.order_by('-sold')
-
-    def get(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        paginator = PageNumberPagination()
-
-        page_size = request.query_params.get('page_size')
-        paginator.page_size = int(page_size) if page_size else api_settings.PAGE_SIZE
-
-        page = paginator.paginate_queryset(queryset, request)
-        if page is None:
-            return Response({"results": [], "count": 0})
-
-        page_num = request.query_params.get('page', 1)
-        cache_key = build_cache_key("products:top", page=page_num, page_size=paginator.page_size)
-
-        try:
-            cached_data = cache.get(cache_key)
-            if cached_data is not None:
-                return Response(cached_data)
-        except Exception:
-            cached_data = None
-
-        response = paginator.get_paginated_response(self.serializer_class(page, many=True).data)
-
-        try:
-            cache.set(cache_key, response.data, timeout=300)
-        except Exception:
-            pass
-
-        return response
+        return Response(data)

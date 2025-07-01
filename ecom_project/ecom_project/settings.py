@@ -61,9 +61,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    'django.middleware.gzip.GZipMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -158,18 +159,36 @@ USE_I18N = True
 USE_TZ = True
 
 
+WHITENOISE_KEEP_ONLY_HASHED_FILES = True
+
+# Turn on automatic Brotli compression when you run collectstatic:
+WHITENOISE_BROTLI = True
+
+# (Optional) Control min file size to compress. Default is 512 bytes.
+WHITENOISE_MIN_SIZE = 500  # or whatever threshold you prefer
+
+# (Optional) If you want to emit both gzip & brotli with max compression levels,
+# you can override these. Reasonable defaults are:
+WHITENOISE_GZIP_COMPRESSION_LEVEL = 6   # default for gzip
+WHITENOISE_BROTLI_COMPRESSION_LEVEL = 4  # mid-range, good perf/vs-size
+
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL  = "/media/"
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",    # <- your source static files
 ]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-
+# Use WhiteNoise to build and serve gzip+brotli versions of your static files
+STATICFILES_STORAGE = (
+     "whitenoise.storage.CompressedManifestStaticFilesStorage"
+)
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
