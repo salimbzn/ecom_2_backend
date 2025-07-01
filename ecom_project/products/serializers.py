@@ -19,7 +19,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'price', 'discount_price', 'main_image_url', 'sold', 'category', 'variants'
+            'id', 'name', 'price', 'discount_price', 'main_image_url','category'
         ]
 
     def get_main_image_url(self, obj):
