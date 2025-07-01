@@ -34,7 +34,7 @@ class StandardPagination(PageNumberPagination):
     max_page_size = 100
 
 
-@method_decorator(cache_page(600), name='dispatch')
+@method_decorator(cache_page(60*60), name='dispatch')
 class ProductListView(ListAPIView):
     """
     /api/products/list
@@ -121,7 +121,7 @@ class ProductDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = ProductDetailSerializer
     lookup_field     = 'id'
 
-
+@method_decorator(cache_page(60*120), name='dispatch')
 class CategoryListView(ListAPIView):
     """
     /api/products/category/list
@@ -135,7 +135,7 @@ class CategoryListView(ListAPIView):
         return Response(data)
 
 
-@method_decorator(cache_page(60*12), name='dispatch')
+@method_decorator(cache_page(60*60), name='dispatch')
 class HomeDiscountedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None  # No pagination, just top 4
@@ -151,7 +151,7 @@ class HomeDiscountedProductsView(ListAPIView):
         )
 
 
-@method_decorator(cache_page(60*12), name='dispatch')
+@method_decorator(cache_page(60*60), name='dispatch')
 class HomeNewProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
@@ -167,7 +167,7 @@ class HomeNewProductsView(ListAPIView):
         )
 
 
-@method_decorator(cache_page(60*12), name='dispatch')
+@method_decorator(cache_page(60*60), name='dispatch')
 class HomeTopOrderedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
