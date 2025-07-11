@@ -33,11 +33,11 @@ class StandardPagination(PageNumberPagination):
     max_page_size = 100
 
 # Cache TTLs
-TWO_HOURS = 60 * 60 * 2      # 2 hours
-THREE_HOURS = 60 * 60 * 3    # 3 hours
+FIVE_MINUTES = 60 * 5      # 2 hours
+HEIGHT_MINUTES = 60 * 8    # 3 hours
 SHORT_CACHE = 60 * 3         # 3 minutes (for extras)
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class ProductListView(ListAPIView):
     """
     /api/products/list
@@ -56,7 +56,7 @@ class ProductListView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class DiscountedProductListView(ListAPIView):
     """
     /api/products/discounted
@@ -73,7 +73,7 @@ class DiscountedProductListView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class NewProductListView(ListAPIView):
     """
     /api/products/new-products
@@ -90,7 +90,7 @@ class NewProductListView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class TopOrderedProductsView(ListAPIView):
     """
     /api/products/top-ordered
@@ -106,7 +106,7 @@ class TopOrderedProductsView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(THREE_HOURS), name='dispatch')
+@method_decorator(cache_page(HEIGHT_MINUTES), name='dispatch')
 class ProductDetailView(RetrieveUpdateDestroyAPIView):
     """
     /api/products/<id>/
@@ -123,7 +123,7 @@ class ProductDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = ProductDetailSerializer
     lookup_field     = 'id'
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class CategoryListView(ListAPIView):
     """
     /api/products/category/list
@@ -136,7 +136,7 @@ class CategoryListView(ListAPIView):
         data = self.serializer_class(qs, many=True).data
         return Response(data)
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class HomeDiscountedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None  # No pagination, just top 4
@@ -151,7 +151,7 @@ class HomeDiscountedProductsView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class HomeNewProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
@@ -166,7 +166,7 @@ class HomeNewProductsView(ListAPIView):
                 .select_related('category')
         )
 
-@method_decorator(cache_page(TWO_HOURS), name='dispatch')
+@method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class HomeTopOrderedProductsView(ListAPIView):
     serializer_class = ProductListSerializer
     pagination_class = None
