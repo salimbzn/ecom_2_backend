@@ -37,7 +37,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://ecom-client-iqeq.onrender.com",
     "https://ecom-shoe-client.onrender.com",
-    "https://ecom-shoe-client.vercel.app"
+    "https://ecom-shoe-client.vercel.app",
+    "https://ecom-2-9iu8.onrender.com"
     
 ]
 
