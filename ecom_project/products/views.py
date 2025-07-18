@@ -37,6 +37,13 @@ FIVE_MINUTES = 60 * 5      # 2 hours
 HEIGHT_MINUTES = 60 * 8    # 3 hours
 SHORT_CACHE = 60 * 3         # 3 minutes (for extras)
 
+from django.http import JsonResponse
+
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
+
+
 @method_decorator(cache_page(FIVE_MINUTES), name='dispatch')
 class ProductListView(ListAPIView):
     """
