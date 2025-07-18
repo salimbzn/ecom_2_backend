@@ -38,7 +38,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://ecom-client-iqeq.onrender.com",
     "https://ecom-shoe-client.onrender.com",
     "https://ecom-shoe-client.vercel.app",
-    "https://ecom-2-9iu8.onrender.com"
+    "https://ecom-2-9iu8.onrender.com",
+    "https://www.cron-job.org"
     
 ]
 
