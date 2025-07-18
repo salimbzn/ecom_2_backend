@@ -10,6 +10,7 @@ from .views import (
     HomeNewProductsView,
     HomeTopOrderedProductsView,
     ProductVariantsView,
+    health_check
 )
 
 urlpatterns = [
@@ -23,5 +24,6 @@ urlpatterns = [
     path('new-home/', HomeNewProductsView.as_view(), name='new-home'),
     path('top-ordered-home/', HomeTopOrderedProductsView.as_view(), name='top-ordered-home'),
     path('<int:id>/variants/', ProductVariantsView.as_view(), name='product-variant-list'),
+    path("health/", health_check)
 
 ]
